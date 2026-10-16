@@ -1,15 +1,15 @@
 import os.path
+import socket
 
-import numpy as np
-from ray import tune
 
-from model.unet.unet_model import UNET
-from model.dense121_unet.dense121_unet_model import DenseNet121
+def local():
+    return socket.gethostname() == "miso"
+
 
 config = {
-    "base_path": "/home/caipi/PycharmProjects/WorldsVolume",
-    "raw_data_path": "/media/caipi/Toshi/volume/sites/dl/",
-    "frame_path": "/media/caipi/Toshi/volume/frames/",
+    "base_path": "/home/caipi/PycharmProjects/WorldsMapathonDL/" if local() else "/dss/dsshome1/0C/di97nev/WorldsVolume/",
+    "raw_data_path": "/media/caipi/Toshi/sites/dl/" if local() else "/dss/dsstbyfs02/scratch/0C/di97nev/data/volume/sites/dl/",
+    "frame_path": "/media/caipi/Toshi/volume/frames/" if local() else "/dss/dsstbyfs02/scratch/0C/di97nev/data/volume/frames/",
     "split": {
         "train": (0.7, "train/"),
         "validation": (0.2, "validation/"),
@@ -18,10 +18,6 @@ config = {
     "num_workers": 0,
     "pin_memory": True,
     "blob_size": 256,
-    "ray_config": {
-        "lr": tune.grid_search([3e-04]),
-        "batch_size": tune.grid_search([4])
-    },
     "device": "cuda:0"
 }
 
@@ -34,7 +30,7 @@ def get_train_path():
     return os.path.join(get_frame_path(), config["split"]["train"][1])
 
 
-def get_validation_path(version):
+def get_validation_path():
     return os.path.join(get_frame_path(), config["split"]["validation"][1])
 
 

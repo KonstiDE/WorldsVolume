@@ -29,7 +29,7 @@ def move_into_split():
     for i in range(validation_percent):
         file = files_list[i + train_percent]
         shutil.move(
-            file, os.path.join(cfg.get_frame_path(), "val", os.path.basename(str(file)))
+            file, os.path.join(cfg.get_frame_path(), "validation", os.path.basename(str(file)))
         )
     for i in range(test_percent):
         file = files_list[i + train_percent + validation_percent]

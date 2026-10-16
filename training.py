@@ -3,6 +3,7 @@ import tempfile
 import random
 
 import numpy as np
+import ray
 import torch
 import shutup
 import sys
@@ -10,11 +11,14 @@ import sys
 import torch.optim as optim
 import statistics as s
 
+from ray.tune import CheckpointConfig, RunConfig
+from ray.tune.logger import TBXLoggerCallback
+from ray.tune.schedulers import ASHAScheduler
+from ray.tune.search.optuna import OptunaSearch
+
 import config.config as cfg
 
-from utils.stopper import PatienceStopper
-
-from provider.dataset_provider import get_loader
+from provider.dataset_provider import get_dataset, get_loader_from_dataset
 from model.dense121_unet.dense121_unet_model import DenseNet121
 
 from metrics.mean_errors import mae, r_mse, medae
@@ -23,6 +27,8 @@ from ray import tune
 from ray import train as raytrain
 from ray.train import Checkpoint
 from ray.experimental.tqdm_ray import tqdm
+
+from utils.stopper import PatienceStopper
 
 sys.path.append(os.getcwd())
 device = cfg.get_device()
@@ -41,7 +47,7 @@ def train(loader, loss_fn, optimizer, scaler, model):
 
     loop = tqdm(loader)
 
-    for (data, target, degree_target, distance_target, _) in loop:
+    for (data, target, _) in loop:
         optimizer.zero_grad(set_to_none=True)
         data = data.to(device)
 
@@ -80,7 +86,7 @@ def valid(loader, loss_fn, model):
 
     loop = tqdm(loader)
 
-    for (data, target, degree_target, distance_target, _) in loop:
+    for (data, target, _) in loop:
         data = data.to(device)
 
         data = model(data)
@@ -103,35 +109,33 @@ def valid(loader, loss_fn, model):
     return s.mean(running_loss), s.mean(running_mae), s.mean(running_medae), s.mean(running_mse), s.mean(running_rmse)
 
 
-def run(ray_config):
+def run(ray_config, data_cache):
     torch.cuda.empty_cache()
 
     set_reproducibility()
 
-    aux = ray_config["aux"]
-
-    model = DenseNet121(in_channels=3, out_channels=1)
+    model = DenseNet121(in_channels=21, out_channels=1)
 
     optimizer = optim.AdamW(model.parameters(), lr=ray_config["lr"])
     loss_fn = torch.nn.L1Loss()
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.amp.GradScaler("cuda")
 
     epochs_done = 0
 
     model.to(device)
 
-    train_loader = get_loader(cfg.get_train_path(version=ray_config["frames"]),
-                              ray_config["batch_size"], cfg.num_workers(), cfg.pin_memory())
+    train_tensors = ray.get(data_cache["train"])
+    val_tensors = ray.get(data_cache["val"])
 
-    valid_loader = get_loader(cfg.get_validation_path(version=ray_config["frames"]),
-                              ray_config["batch_size"], cfg.num_workers(), cfg.pin_memory())
+    train_loader = get_loader_from_dataset(train_tensors, ray_config["batch_size"], cfg.num_workers(), cfg.pin_memory())
+    val_loader = get_loader_from_dataset(val_tensors, ray_config["batch_size"], cfg.num_workers(), cfg.pin_memory())
 
     for epoch in range(epochs_done + 1, 101):
         t_loss, t_mae, t_medae, t_mse, t_rmse = train(
             train_loader, loss_fn, optimizer, scaler, model)
 
         v_loss, v_mae, v_medae, v_mse, v_rmse = valid(
-            valid_loader, loss_fn, model)
+            val_loader, loss_fn, model)
 
         # Ray report
         checkpoint_data = {
@@ -171,30 +175,63 @@ def set_reproducibility():
 
 
 if __name__ == '__main__':
-    # scheduler = ASHAScheduler(max_t=100, grace_period=1, reduction_factor=2)
+    print(f"Loading data into shared memory...")
 
-    stopper = PatienceStopper(
+    shared_data_cache = {}
+
+    train_ds = get_dataset(cfg.get_train_path(), True, load_amount=0)
+    shared_data_cache["train"] = ray.put(train_ds)
+    del train_ds
+
+    valid_ds = get_dataset(cfg.get_validation_path(), False, load_amount=0)
+    shared_data_cache["val"] = ray.put(valid_ds)
+    del valid_ds
+
+    optuna_search = OptunaSearch(metric="validation_loss", mode="min")
+
+    universal_lr_space = tune.loguniform(1e-6, 1e-1)
+    asha_scheduler = ASHAScheduler(
+        time_attr="training_iteration",
         metric="validation_loss",
         mode="min",
-        patience=5
+        max_t=100,
+        grace_period=2,
+        reduction_factor=3
+    )
+
+    trainable = tune.with_resources(
+        tune.with_parameters(run, data_cache=shared_data_cache),
+        resources={"cpu": 16, "gpu": 1}
     )
 
     tuner = tune.Tuner(
-        tune.with_resources(
-            tune.with_parameters(run),
-            resources={"cpu": 16, "gpu": 1},
-        ),
+        trainable,
         tune_config=tune.TuneConfig(
-            metric="validation_loss",
-            mode="min",
-            num_samples=1,
+            num_samples=10,
+            scheduler=asha_scheduler,
+            search_alg=optuna_search
         ),
-        param_space=cfg.get_ray_config(),
-        run_config=raytrain.RunConfig(
-            stop=stopper,
-            local_dir=os.path.join(cfg.get_raw_data_path(), "ray_results"),
+        run_config=RunConfig(
+            name="ray_results",
+            callbacks=[TBXLoggerCallback()],
+            stop=PatienceStopper(
+                metric="validation_loss",
+                mode="min",
+                patience=5
+            ),
+            storage_path=cfg.get_raw_data_path(),
+            checkpoint_config=CheckpointConfig(
+                num_to_keep=1,
+                checkpoint_score_attribute="validation_loss",
+                checkpoint_score_order="min"
+            )
         ),
+        param_space={
+            "batch_size": 4,
+            "lr": universal_lr_space
+        },
     )
+
     results = tuner.fit()
 
     best_result = results.get_best_result("validation_loss", "min", "all")

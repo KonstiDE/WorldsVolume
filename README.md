@@ -1,1 +1,0 @@
-K. Müller, M. Bevanda, K. Breininger, A. J. Castañeda-Gomez, M. Wegmann, B. Wigley, C. Coetsee, D. Klein, S. Dech, and J. Schwalb-Willmann, "Animal Path Segmentation and Analysis via Deep Neural Network Regression," in preparation, 2025.
