@@ -1,0 +1,69 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="DuplicatedCode" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <Languages>
+        <language minSize="311" name="Python" />
+      </Languages>
+    </inspection_tool>
+    <inspection_tool class="PyDictCreationInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyInterpreterInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="false" level="WARNING" enabled_by_default="false">
+      <option name="ignoredPackages">
+        <list>
+          <option value="basicsr" />
+          <option value="lpips" />
+          <option value="numpy" />
+          <option value="scikit-image" />
+          <option value="Pillow" />
+          <option value="opencv_python" />
+          <option value="kornia" />
+          <option value="wandb" />
+          <option value="CLIP" />
+          <option value="open_clip_torch" />
+          <option value="torch" />
+          <option value="torchvision" />
+          <option value="certifi" />
+          <option value="charset-normalizer" />
+          <option value="contourpy" />
+          <option value="cycler" />
+          <option value="fonttools" />
+          <option value="idna" />
+          <option value="imageio" />
+          <option value="kiwisolver" />
+          <option value="laspy" />
+          <option value="matplotlib" />
+          <option value="packaging" />
+          <option value="platformdirs" />
+          <option value="pooch" />
+          <option value="pyparsing" />
+          <option value="python-dateutil" />
+          <option value="pyvista" />
+          <option value="requests" />
+          <option value="scooby" />
+          <option value="six" />
+          <option value="tqdm" />
+          <option value="trimesh" />
+          <option value="urllib3" />
+          <option value="vtk" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="INFORMATION" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E303" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyShadowingNamesInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="bool.*" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="ReassignedToPlainText" enabled="false" level="WARNING" enabled_by_default="false" />
+  </profile>
+</component>
