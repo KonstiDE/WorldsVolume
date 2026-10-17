@@ -59,16 +59,16 @@ class UNET(nn.Module):
         x = self.uc1(x)
         x = self.dc8(torch.cat([x, s1], 1))
 
-        return self.final(x), None, None
+        return self.final(x)
 
 
 def test():
-    a = torch.randn((8, 3, 512, 512)).cuda()
-    unet = UNET(in_channels=3, out_channels=1).cuda()
+    a = torch.randn((4, 20, 256, 256)).cuda()
+    unet = UNET(in_channels=20, out_channels=1).cuda()
 
     stamp = time.time()
 
-    b, _, _ = unet(a)
+    b = unet(a)
     print("This took: {}".format(time.time() - stamp))
 
     print(b.shape)

@@ -3,13 +3,13 @@ import socket
 
 
 def local():
-    return socket.gethostname() == "miso"
+    return True
 
 
 config = {
-    "base_path": "/home/caipi/PycharmProjects/WorldsMapathonDL/" if local() else "/dss/dsshome1/0C/di97nev/WorldsVolume/",
-    "raw_data_path": "/media/caipi/Toshi/sites/dl/" if local() else "/dss/dsstbyfs02/scratch/0C/di97nev/data/volume/sites/dl/",
-    "frame_path": "/media/caipi/Toshi/volume/frames/" if local() else "/dss/dsstbyfs02/scratch/0C/di97nev/data/volume/frames/",
+    "base_path": "C:\\Users\\fkt40ea\\PycharmProjects\\WorldsVolume" if local() else "/dss/dsshome1/0C/di97nev/WorldsVolume/",
+    "raw_data_path": "A:\\volume\\sites\\dl" if local() else "/dss/dsstbyfs02/scratch/0C/di97nev/data/volume/sites/dl/",
+    "frame_path": "A:\\volume\\frames" if local() else "/dss/dsstbyfs02/scratch/0C/di97nev/data/volume/frames/",
     "split": {
         "train": (0.7, "train/"),
         "validation": (0.2, "validation/"),

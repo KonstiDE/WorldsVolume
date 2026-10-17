@@ -50,7 +50,7 @@ class NrwDataSet(Dataset):
         c = 0
         for frame_file in tqdm(frame_files):
             with rio.open(os.path.join(data_dir, frame_file)) as src:
-                self.dataset.append(src.read())
+                self.dataset.append((np.expand_dims(src.read(1), axis=0), src.read((range(2, 22))), frame_file))
 
                 src.close()
 
@@ -67,14 +67,14 @@ class NrwDataSet(Dataset):
     def __getitem__(self, index):
         data_tuple = self.dataset[index]
 
-        data = torch.Tensor(data_tuple[0])
-        mask = torch.Tensor(data_tuple[1])
+        data = torch.Tensor(data_tuple[1])
+        mask = torch.Tensor(data_tuple[0])
 
         if self.augmentation:
             data = transforms(data)
             mask = transforms(mask)
 
-        frame_file = data_tuple[3]
+        frame_file = data_tuple[2]
 
         return data, mask, frame_file
 
@@ -93,10 +93,7 @@ def get_loader(npz_dir, augmentation, batch_size, num_workers=2, pin_memory=True
     return train_loader
 
 
-def get_loader_from_dataset(dataset: NrwDataSet, batch_size, change_dc=None, num_workers=0, pin_memory=False, shuffle=True):
-    if change_dc is not None:
-        dataset.configuration = change_dc
-
+def get_loader_from_dataset(dataset: NrwDataSet, batch_size, num_workers=0, pin_memory=False, shuffle=True):
     train_loader = DataLoader(
         dataset,
         batch_size=batch_size,

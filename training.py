@@ -17,11 +17,13 @@ from ray.tune.schedulers import ASHAScheduler
 from ray.tune.search.optuna import OptunaSearch
 
 import config.config as cfg
+from model.unet.unet_model import UNET
 
 from provider.dataset_provider import get_dataset, get_loader_from_dataset
 from model.dense121_unet.dense121_unet_model import DenseNet121
 
 from metrics.mean_errors import mae, r_mse, medae
+from tqdm import tqdm as loop_tqdm
 
 from ray import tune
 from ray import train as raytrain
@@ -45,7 +47,7 @@ def train(loader, loss_fn, optimizer, scaler, model):
     running_mse = []
     running_rmse = []
 
-    loop = tqdm(loader)
+    loop = loop_tqdm(loader)
 
     for (data, target, _) in loop:
         optimizer.zero_grad(set_to_none=True)
@@ -72,6 +74,8 @@ def train(loader, loss_fn, optimizer, scaler, model):
 
         running_loss.append(loss_value)
 
+        loop.set_postfix_str(f"Loss: {loss.item():.4f}")
+
     return s.mean(running_loss), s.mean(running_mae), s.mean(running_medae), s.mean(running_mse), s.mean(running_rmse)
 
 
@@ -84,7 +88,7 @@ def valid(loader, loss_fn, model):
     running_mse = []
     running_rmse = []
 
-    loop = tqdm(loader)
+    loop = loop_tqdm(loader)
 
     for (data, target, _) in loop:
         data = data.to(device)
@@ -106,6 +110,8 @@ def valid(loader, loss_fn, model):
 
         running_loss.append(loss_value)
 
+        loop.set_postfix_str(f"Loss: {loss.item():.4f}")
+
     return s.mean(running_loss), s.mean(running_mae), s.mean(running_medae), s.mean(running_mse), s.mean(running_rmse)
 
 
@@ -114,7 +120,7 @@ def run(ray_config, data_cache):
 
     set_reproducibility()
 
-    model = DenseNet121(in_channels=21, out_channels=1)
+    model = UNET(in_channels=20, out_channels=1)
 
     optimizer = optim.AdamW(model.parameters(), lr=ray_config["lr"])
     loss_fn = torch.nn.L1Loss()
@@ -163,7 +169,7 @@ def run(ray_config, data_cache):
                 os.path.join(temp_checkpoint_dir, "model_epoch{}.pt".format(epoch)),
             )
             checkpoint = Checkpoint.from_directory(temp_checkpoint_dir)
-            raytrain.report(metrics, checkpoint=checkpoint)
+            ray.tune.report(metrics, checkpoint=checkpoint)
 
 
 def set_reproducibility():
@@ -176,6 +182,10 @@ def set_reproducibility():
 
 if __name__ == '__main__':
     print(f"Loading data into shared memory...")
+
+    ray.init(config={
+        "object_spilling_config": '{"type":"smart_open","params":{"uri":"A:/tmp"}}'
+    }, _temp_dir="A:/tmp")
 
     shared_data_cache = {}
 
@@ -201,13 +211,13 @@ if __name__ == '__main__':
 
     trainable = tune.with_resources(
         tune.with_parameters(run, data_cache=shared_data_cache),
-        resources={"cpu": 16, "gpu": 1}
+        resources={"cpu": 16, "gpu": 2}
     )
 
     tuner = tune.Tuner(
         trainable,
         tune_config=tune.TuneConfig(
-            num_samples=10,
+            num_samples=30,
             scheduler=asha_scheduler,
             search_alg=optuna_search
         ),
@@ -219,7 +229,7 @@ if __name__ == '__main__':
                 mode="min",
                 patience=5
             ),
-            storage_path=cfg.get_raw_data_path(),
+            storage_path="A:\\volume",
             checkpoint_config=CheckpointConfig(
                 num_to_keep=1,
                 checkpoint_score_attribute="validation_loss",

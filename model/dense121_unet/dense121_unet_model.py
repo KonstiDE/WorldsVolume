@@ -149,7 +149,7 @@ class DenseNet121(nn.Module):
         x = self.decode_conv4(x)
 
         if not self.aux:
-            return self.final_block(x), degree, distance
+            return self.final_block(x)
 
         else:
             x = self.final_intermediate(x)
@@ -183,17 +183,17 @@ class DenseNet121(nn.Module):
             x = self.dc4n(x, s1)
             x = self.decode_conv4n(x)
 
-            return self.final_block(x), degree, distance
+            return self.final_block(x)
 
 
 if __name__ == '__main__':
-    a = torch.randn((8, 3, 512, 512)).cuda()
+    a = torch.randn((4, 20, 256, 256)).cuda()
 
-    model = DenseNet121(in_channels=3, out_channels=1, attention=False, aspp=True, aux=False).cuda()
+    model = DenseNet121(in_channels=20, out_channels=1, attention=False, aspp=True, aux=False).cuda()
 
     stamp = time.time()
 
-    b, _, _ = model(a)
-    print("This took: {}".format(time.time() - stamp))
+    b = model(a)
+    print("This took: {}ms".format(time.time() - stamp))
 
     print(b.shape)
